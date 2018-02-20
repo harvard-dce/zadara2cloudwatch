@@ -1,0 +1,65 @@
+AWSTemplateFormatVersion : '2010-09-09'
+Description: Zadara performance metrics -> Cloudwatch
+
+Parameters:
+  ZadaraApiKey:
+    Type: String
+  ZadaraVpsaHost:
+    Type: String
+  MetricNamespace:
+    Type: String
+    Default: ZadaraPerformance
+  MetricInterval:
+    Type: Number
+    Default: 30
+
+Resources:
+  ZadaraMetricsFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Runtime: python3.6
+      Handler: function.handler
+      Name: !Sub "${AWS::StackName}-function"
+      Role: !Ref [ZadaraMetricsRole, Arn]
+      CodeUri: ./
+      Environment:
+        Variables:
+          VPSA_HOST: !Ref ZadaraVpsaHost
+          API_KEY: !Ref ZadaraApiKey
+          CLOUDWATCH_NAMESPACE: !Ref MetricNamespace
+          METRIC_INTERVAL: !Ref MetricInterval
+
+  ZadaraMetricsRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${AWS::StackName}-role"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+        - Action: sts:AssumeRole
+          Effect: Allow
+          Principal:
+            Service: lambda.amazonaws.com
+      ManagedPolicyArns:
+        - "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
+        - "arn:aws:iam::aws:policy/CloudWatchFullAccess"
+
+  ZadaraMetricsEventRule:
+    Type: "AWS::Events::Rule"
+    Properties:
+      ScheduleExpression: "rate(5 minutes)"
+      Name: PublishMetrics
+      State: "ENABLED"
+      Targets:
+        -
+          Arn: !GetAtt ZadaraMetricsFunction.Arn
+          Id: "PublishMetricsScheduler"
+
+  ZadaraMetricsEventLambdaPermissions:
+    Type: "AWS::Lambda::Permission"
+    Properties:
+      FunctionName: !Ref ZadaraMetricsFunction
+      Action: "lambda:InvokeFunction"
+      Principal: "events.amazonaws.com"
+      SourceArn: !GetAtt [ZadaraMetricsEventRule, Arn]
+
