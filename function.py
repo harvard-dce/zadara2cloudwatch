@@ -37,29 +37,38 @@ def get_metrics(resource_type, resource_name, custom_path=None):
 
 
 def send2cw(metric_batch, extra_dimensions=None):
-    put_data = {
-        'Namespace': METRIC_NAMESPACE,
-        'MetricData': []
-    }
+
     dimensions = [{'Name': 'vpsa', 'Value': VPSA_HOST}]
     if extra_dimensions is not None:
         dimensions.extend([
             {'Name': k, 'Value': v} for k, v in extra_dimensions.items()
         ])
 
+    metric_data = []
     for measurements  in metric_batch:
         timestamp = arrow.get(measurements['time']).datetime
         del measurements['time']
         for metric_name, val in measurements.items():
-            put_data['MetricData'].append({
+            metric_data.append({
                 'MetricName': metric_name,
                 'Timestamp': timestamp,
                 'Value': val,
                 'Unit': get_unit(metric_name),
                 'Dimensions': dimensions
             })
-    print(put_data)
+        if len(metric_data) == 10:
+            cw.put_metric_data(
+                Namespace=METRIC_NAMESPACE,
+                MetricData=metric_data
+            )
+            metric_data = []
+            continue
 
+    if len(metric_data):
+        cw.put_metric_data(
+            Namespace=METRIC_NAMESPACE,
+            MetricData=metric_data
+        )
 
 def get_unit(metric_name):
     if metric_name.endswith('time'):

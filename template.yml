@@ -27,6 +27,7 @@ Resources:
       Handler: function.handler
       FunctionName: !Sub "${AWS::StackName}-function"
       Role: !GetAtt [ZadaraMetricsRole, Arn]
+      Timeout: 30
       Code:
         S3Bucket: !Ref LambdaCodeBucket
         S3Key: !Sub "${AWS::StackName}-function.zip"
@@ -34,13 +35,13 @@ Resources:
         Variables:
           VPSA_HOST: !Ref ZadaraVpsaHost
           API_KEY: !Ref ZadaraApiKey
-          CLOUDWATCH_NAMESPACE: !Ref MetricNamespace
+          METRIC_NAMESPACE: !Ref MetricNamespace
           METRIC_INTERVAL: !Ref MetricInterval
-#      VpcConfig:
-#        SubnetIds:
-#          - !Ref VpcSubnetId
-#        SecurityGroupIds:
-#          - !Ref VpcSecurityGroupId
+      VpcConfig:
+        SubnetIds:
+          - !Ref VpcSubnetId
+        SecurityGroupIds:
+          - !Ref VpcSecurityGroupId
 
   ZadaraMetricsRole:
     Type: AWS::IAM::Role

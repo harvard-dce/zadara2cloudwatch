@@ -64,6 +64,19 @@ def package(ctx):
 
 
 @task
+def update(ctx):
+    function_name = "{}-function".format(getenv("STACK_NAME"))
+    cmd = ("aws {} lambda update-function-code "
+           "--function-name {} --publish --s3-bucket {} --s3-key {}-function.zip"
+           ).format(
+        profile_arg(),
+        function_name,
+        getenv('LAMBDA_CODE_BUCKET'),
+        getenv('STACK_NAME')
+    )
+    ctx.run(cmd)
+
+@task
 def deploy(ctx):
 
     template_path = join(dirname(__file__), 'template.yml')
