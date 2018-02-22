@@ -61,9 +61,9 @@ Resources:
   ZadaraMetricsEventRule:
     Type: "AWS::Events::Rule"
     Properties:
-      ScheduleExpression: "rate(5 minutes)"
+      ScheduleExpression: "rate(10 minutes)"
       Name: PublishMetrics
-      State: "DISABLED"
+      State: "ENABLED"
       Targets:
         -
           Arn: !GetAtt ZadaraMetricsFunction.Arn

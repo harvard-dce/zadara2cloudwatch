@@ -1,9 +1,13 @@
+
 import re
 import boto3
 import arrow
 from os import getenv as env
 from urllib.parse import urljoin
 from botocore.vendored import requests
+
+from botocore.vendored.requests.packages import urllib3
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 API_KEY = env('API_KEY')
 VPSA_HOST = env('VPSA_HOST')
@@ -44,8 +48,8 @@ def send2cw(metric_batch, extra_dimensions=None):
             {'Name': k, 'Value': v} for k, v in extra_dimensions.items()
         ])
 
-    metric_data = []
     for measurements  in metric_batch:
+        metric_data = []
         timestamp = arrow.get(measurements['time']).datetime
         del measurements['time']
         for metric_name, val in measurements.items():
@@ -56,19 +60,19 @@ def send2cw(metric_batch, extra_dimensions=None):
                 'Unit': get_unit(metric_name),
                 'Dimensions': dimensions
             })
-        if len(metric_data) == 10:
+            if len(metric_data) == 10:
+                cw.put_metric_data(
+                    Namespace=METRIC_NAMESPACE,
+                    MetricData=metric_data
+                )
+                metric_data = []
+                continue
+
+        if len(metric_data):
             cw.put_metric_data(
                 Namespace=METRIC_NAMESPACE,
                 MetricData=metric_data
             )
-            metric_data = []
-            continue
-
-    if len(metric_data):
-        cw.put_metric_data(
-            Namespace=METRIC_NAMESPACE,
-            MetricData=metric_data
-        )
 
 def get_unit(metric_name):
     if metric_name.endswith('time'):
