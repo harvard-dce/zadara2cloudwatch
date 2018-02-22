@@ -3,6 +3,7 @@ from invoke import task, Exit
 from os import getenv as env
 from dotenv import load_dotenv
 from os.path import join, dirname, exists
+from jinja2 import Template
 
 load_dotenv(join(dirname(__file__), '.env'))
 
@@ -116,6 +117,36 @@ def deploy(ctx):
         getenv('LAMBDA_CODE_BUCKET')
     )
     ctx.run(cmd)
+
+
+@task
+def create_dashboard(ctx, controller, volume):
+    """
+    Create a cloudwatch dashboard with widgets as defined by cw_dashboard.json.
+    For now you need to profile a controller and volume name which you can get
+    from the cloudwatch metric dimensions.
+    """
+    tf_path = join(dirname(__file__), 'cw_dashboard.json')
+    with open(tf_path, 'r') as tf:
+        t = Template(tf.read())
+        dashboard_body = t.render(
+            namespace=getenv('METRIC_NAMESPACE'),
+            vpsa_host=getenv('VPSA_HOST'),
+            controller=controller,
+            volume=volume
+        )
+    print(dashboard_body)
+    cmd = ("aws {} cloudwatch put-dashboard "
+           "--dashboard-name {}-metrics "
+           "--dashboard-body '{}'") \
+        .format(
+            profile_arg(),
+            getenv('STACK_NAME'),
+            dashboard_body
+        )
+    ctx.run(cmd, echo=False)
+
+
 
 @task
 def delete(ctx):

@@ -1,3 +1,4 @@
 boto3
 invoke
 python-dotenv
+jinja2

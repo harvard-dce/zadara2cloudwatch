@@ -1,0 +1,161 @@
+{
+    "widgets": [
+        {
+            "type": "metric",
+            "x": 12,
+            "y": 18,
+            "width": 12,
+            "height": 6,
+            "properties": {
+                "view": "timeSeries",
+                "stacked": false,
+                "region": "us-east-1",
+                "start": "-PT12H",
+                "end": "P0D",
+                "metrics": [
+                    [ "{{ namespace }}", "gb_wrt", "controller", "{{ controller }}", "vpsa", "{{ vpsa_host }}", { "stat": "Sum" } ],
+                    [ ".", "gb_rd", ".", ".", ".", ".", { "stat": "Sum" } ]
+                ],
+                "title": "Read/Write GBs"
+            }
+        },
+        {
+            "type": "metric",
+            "x": 0,
+            "y": 0,
+            "width": 12,
+            "height": 6,
+            "properties": {
+                "view": "timeSeries",
+                "stacked": false,
+                "region": "us-east-1",
+                "start": "-PT12H",
+                "end": "P0D",
+                "metrics": [
+                    [ "{{ namespace }}", "mem_alloc", "controller", "{{ controller }}", "vpsa", "{{ vpsa_host }}", { "period": 60 } ],
+                    [ ".", "mem_used", ".", ".", ".", ".", { "period": 60 } ],
+                    [ ".", "mem_active", ".", ".", ".", ".", { "period": 60 } ]
+                ],
+                "title": "Controller Memory"
+            }
+        },
+        {
+            "type": "metric",
+            "x": 12,
+            "y": 0,
+            "width": 12,
+            "height": 6,
+            "properties": {
+                "view": "timeSeries",
+                "stacked": false,
+                "region": "us-east-1",
+                "start": "-PT12H",
+                "end": "P0D",
+                "title": "Controller CPU",
+                "metrics": [
+                    [ "{{ namespace }}", "cpu_system", "controller", "{{ controller }}", "vpsa", "{{ vpsa_host }}", { "period": 60 } ],
+                    [ ".", "cpu_iowait", ".", ".", ".", ".", { "period": 60 } ],
+                    [ ".", "cpu_user", ".", ".", ".", ".", { "period": 60 } ],
+                    [ ".", "cpu_idle", ".", ".", ".", ".", { "period": 60 } ]
+                ]
+            }
+        },
+        {
+            "type": "metric",
+            "x": 0,
+            "y": 18,
+            "width": 12,
+            "height": 6,
+            "properties": {
+                "view": "timeSeries",
+                "stacked": false,
+                "region": "us-east-1",
+                "start": "-PT12H",
+                "end": "P0D",
+                "title": "Cache Hitrate",
+                "metrics": [
+                    [ "{{ namespace }}", "zcache_meta_read_hit", "vpsa", "{{ vpsa_host }}", { "period": 300 } ],
+                    [ ".", "zcache_data_read_hit", ".", ".", { "period": 300 } ],
+                    [ ".", "zcache_data_write_hit", ".", ".", { "period": 300 } ],
+                    [ ".", "zcache_meta_write_hit", ".", "." ]
+                ]
+            }
+        },
+        {
+            "type": "metric",
+            "x": 0,
+            "y": 6,
+            "width": 12,
+            "height": 6,
+            "properties": {
+                "view": "timeSeries",
+                "stacked": false,
+                "region": "us-east-1",
+                "start": "-PT12H",
+                "end": "P0D",
+                "title": "Read/Write IOPs",
+                "metrics": [
+                    [ "{{ namespace }}", "rd_iops", "volume", "{{ volume }}", "vpsa", "{{ vpsa_host }}", { "stat": "Sum", "period": 60 } ],
+                    [ ".", "wrt_iops", ".", ".", ".", ".", { "stat": "Sum", "period": 60 } ]
+                ]
+            }
+        },
+        {
+            "type": "metric",
+            "x": 0,
+            "y": 12,
+            "width": 12,
+            "height": 6,
+            "properties": {
+                "view": "timeSeries",
+                "stacked": false,
+                "region": "us-east-1",
+                "start": "-PT12H",
+                "end": "P0D",
+                "title": "Read/Write IOTime",
+                "metrics": [
+                    [ "{{ namespace }}", "rd_iotime", "volume", "{{ volume }}", "vpsa", "{{ vpsa_host }}" ],
+                    [ ".", "wrt_iotime", ".", ".", ".", "." ]
+                ]
+            }
+        },
+        {
+            "type": "metric",
+            "x": 12,
+            "y": 6,
+            "width": 12,
+            "height": 6,
+            "properties": {
+                "view": "timeSeries",
+                "stacked": false,
+                "region": "us-east-1",
+                "start": "-PT12H",
+                "end": "P0D",
+                "title": "Read/Write Queue Length",
+                "metrics": [
+                    [ "{{ namespace }}", "wrt_queue_len", "volume", "{{ volume }}", "vpsa", "{{ vpsa_host }}" ],
+                    [ ".", "rd_queue_len", ".", ".", ".", "." ]
+                ]
+            }
+        },
+        {
+            "type": "metric",
+            "x": 12,
+            "y": 12,
+            "width": 12,
+            "height": 6,
+            "properties": {
+                "view": "timeSeries",
+                "stacked": false,
+                "region": "us-east-1",
+                "start": "-PT12H",
+                "end": "P0D",
+                "title": "Read/Write Bandwidth (MBs)",
+                "metrics": [
+                    [ "{{ namespace }}", "rd_bandwidth", "volume", "{{ volume }}", "vpsa", "{{ vpsa_host }}" ],
+                    [ ".", "wrt_bandwidth", ".", ".", ".", "." ]
+                ]
+            }
+        }
+    ]
+}
