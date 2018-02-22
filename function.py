@@ -131,7 +131,7 @@ def send2cwlogs(msgs, sequence_token):
     }
 
     for msg in msgs:
-        timestamp = arrow.get(msg['msg_time']).timestamp
+        timestamp = arrow.get(msg['msg_time']).timestamp * 1000
         del msg['msg_time']
         put_params['logEvents'].append({
             'timestamp': timestamp,
@@ -147,7 +147,7 @@ def send_logs():
 
     start_msg_id = get_last_message_id()
     sort = json.dumps([{"property":"msg-id","direction":"ASC"}])
-    params = {'limit': 1000, 'start': start_msg_id, 'sort': sort}
+    params = {'limit': 100, 'start': start_msg_id, 'sort': sort}
     batch_counter = 0
     sequence_token = None
 
