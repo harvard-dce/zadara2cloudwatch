@@ -37,6 +37,8 @@ Resources:
           API_KEY: !Ref ZadaraApiKey
           METRIC_NAMESPACE: !Ref MetricNamespace
           METRIC_INTERVAL: !Ref MetricInterval
+          LAST_MESSAGE_ID_PARAM_NAME: !Sub "${AWS::StackName}-last-message-id"
+          VPSA_LOG_GROUP_NAME: !Sub "${AWS::StackName}-vpsa-logs"
       VpcConfig:
         SubnetIds:
           - !Ref VpcSubnetId
@@ -57,6 +59,7 @@ Resources:
       ManagedPolicyArns:
         - "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
         - "arn:aws:iam::aws:policy/CloudWatchFullAccess"
+        - "arn:aws:iam::aws:policy/AmazonSSMFullAccess"
 
   ZadaraMetricsEventRule:
     Type: "AWS::Events::Rule"
@@ -77,3 +80,15 @@ Resources:
       Principal: "events.amazonaws.com"
       SourceArn: !GetAtt [ZadaraMetricsEventRule, Arn]
 
+
+  ZadaraMetricsVpsaLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "${AWS::StackName}-vpsa-logs"
+      RetentionInDays: 365
+
+  ZadaraMetricsVpsaLogStream:
+    Type: AWS::Logs::LogStream
+    Properties:
+      LogGroupName: !Ref ZadaraMetricsVpsaLogGroup
+      LogStreamName: !Join ['-', !Split [':', !Ref ZadaraVpsaHost]]

@@ -1,9 +1,13 @@
 
 import re
+import json
 import boto3
 import arrow
 from os import getenv as env
+from operator import itemgetter
 from urllib.parse import urljoin
+
+from botocore.exceptions import ClientError
 from botocore.vendored import requests
 
 from botocore.vendored.requests.packages import urllib3
@@ -13,8 +17,12 @@ API_KEY = env('API_KEY')
 VPSA_HOST = env('VPSA_HOST')
 METRIC_INTERVAL = env('METRIC_INTERVAL', 30)
 METRIC_NAMESPACE = env('METRIC_NAMESPACE')
+LAST_MESSAGE_ID_PARAM_NAME = env('LAST_MESSAGE_ID_PARAM_NAME')
+VPSA_LOG_GROUP_NAME = env('VPSA_LOG_GROUP_NAME')
 
 cw = boto3.client('cloudwatch')
+ssm = boto3.client('ssm')
+cwlogs = boto3.client('logs')
 s = requests.Session()
 s.headers.update({'X-Access-Key': API_KEY})
 
@@ -85,17 +93,91 @@ def get_unit(metric_name):
         return 'Count'
 
 
+def get_last_message_id():
+    try:
+        param = ssm.get_parameter(Name=LAST_MESSAGE_ID_PARAM_NAME)
+        return param['Parameter']['Value']
+    except ClientError as e:
+        if e.response['Error']['Code'] == 'ParameterNotFound':
+            return "0"
+        else:
+            raise
+
+
+def set_last_message_id(id):
+    ssm.put_parameter(
+        Name=LAST_MESSAGE_ID_PARAM_NAME,
+        Type='String',
+        Value=id,
+        Overwrite=True
+    )
+
+
+def send2cwlogs(msgs, sequence_token):
+
+    log_stream_name = VPSA_HOST.replace(':', '-')
+
+    if sequence_token is None:
+        sequence_token = cwlogs.describe_log_streams(
+            logGroupName=VPSA_LOG_GROUP_NAME,
+            logStreamNamePrefix=log_stream_name
+        )['logStreams'][0]['uploadSequenceToken']
+
+    put_params = {
+        'logGroupName': VPSA_LOG_GROUP_NAME,
+        'logStreamName': log_stream_name,
+        'sequenceToken': sequence_token,
+        'logEvents': []
+    }
+
+    for msg in msgs:
+        timestamp = arrow.get(msg['msg_time']).timestamp
+        del msg['msg_time']
+        put_params['logEvents'].append({
+            'timestamp': timestamp,
+            'message': json.dumps(msg)
+        })
+        put_params['logEvents'] = sorted(put_params['logEvents'], key=itemgetter('timestamp'))
+
+    resp = cwlogs.put_log_events(**put_params)
+    return resp['nextSequenceToken']
+
+
+def send_logs():
+
+    start_msg_id = get_last_message_id()
+    sort = json.dumps([{"property":"msg-id","direction":"ASC"}])
+    params = {'limit': 1000, 'start': start_msg_id, 'sort': sort}
+    batch_counter = 0
+    sequence_token = None
+
+    while True:
+        resp = api_request('messages.json', params=params)
+        msgs = resp['response']['messages']
+        if not len(msgs):
+            break
+        batch_counter += 1
+        print("sending batch {}".format(batch_counter))
+        sequence_token = send2cwlogs(msgs, sequence_token)
+        last_id = msgs[-1]['msg_id']
+        params['start'] = last_id
+        set_last_message_id(last_id)
+
+
 def handler(event, context):
     """Fetch performance data from zadara api and push to cloudwatch"""
 
     print(event)
-    active_servers = []
+
+    print("sending logs")
+    send_logs()
 
     for pool in get_resources('pools'):
         print("publishing metrics for pool {}".format(pool['name']))
         pool_perf = get_metrics('pools', pool['name'])
         send2cw(pool_perf, {'pool': pool['name']})
 
+    active_servers = []
     for volume in get_resources('volumes'):
         print("publishing metrics for volume {}".format(volume['name']))
         vol_perf = get_metrics('volumes', volume['name'])
