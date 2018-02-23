@@ -93,3 +93,6 @@ To delete the Cloudformation stack run:
 
 `invoke delete`
 
+#### Dashboard screenshot
+
+![Example dashboard](./zadara-dashboard.png "Example dashboard")
