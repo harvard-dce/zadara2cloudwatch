@@ -117,18 +117,21 @@ def send2cwlogs(msgs, sequence_token):
 
     log_stream_name = VPSA_HOST.replace(':', '-')
 
-    if sequence_token is None:
-        sequence_token = cwlogs.describe_log_streams(
-            logGroupName=VPSA_LOG_GROUP_NAME,
-            logStreamNamePrefix=log_stream_name
-        )['logStreams'][0]['uploadSequenceToken']
-
     put_params = {
         'logGroupName': VPSA_LOG_GROUP_NAME,
         'logStreamName': log_stream_name,
-        'sequenceToken': sequence_token,
         'logEvents': []
     }
+
+    try:
+        if sequence_token is None:
+            sequence_token = cwlogs.describe_log_streams(
+                logGroupName=VPSA_LOG_GROUP_NAME,
+                logStreamNamePrefix=log_stream_name
+            )['logStreams'][0]['uploadSequenceToken']
+        put_params['sequenceToken'] = sequence_token
+    except KeyError as e:
+        pass
 
     for msg in msgs:
         timestamp = arrow.get(msg['msg_time']).timestamp * 1000
