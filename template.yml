@@ -65,7 +65,7 @@ Resources:
     Type: "AWS::Events::Rule"
     Properties:
       ScheduleExpression: "rate(10 minutes)"
-      Name: PublishMetrics
+      Name: !Sub "${AWS::StackName}-event-rule"
       State: "ENABLED"
       Targets:
         -

@@ -152,5 +152,8 @@ def create_dashboard(ctx, controller, volume):
 def delete(ctx):
     cmd = ("aws {} cloudformation delete-stack "
            "--stack-name {}").format(profile_arg(), getenv('STACK_NAME'))
-    ctx.run(cmd)
+    if input('are you sure? [y/N] ').lower().strip().startswith('y'):
+        ctx.run(cmd)
+    else:
+        print("not deleting stack")
 
