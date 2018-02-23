@@ -29,6 +29,17 @@ def stack_exists(ctx):
     return res.exited == 0
 
 
+def s3_zipfile_exists(ctx):
+    cmd = "aws {} s3 ls s3://{}/{}-function.zip" \
+        .format(
+            profile_arg(),
+            getenv('LAMBDA_CODE_BUCKET'),
+            getenv('STACK_NAME')
+        )
+    res = ctx.run(cmd, hide=True, warn=True, echo=False)
+    return res.exited == 0
+
+
 @task
 def create_code_bucket(ctx):
     """
@@ -46,6 +57,9 @@ def create_code_bucket(ctx):
 
 @task
 def package(ctx):
+    """
+    Package the function + dependencies into a zipfile and upload to s3 bucket created via `create-code-bucket`
+    """
 
     build_path = join(dirname(__file__), 'dist')
     function_path = join(dirname(__file__), 'function.py')
@@ -65,7 +79,10 @@ def package(ctx):
 
 
 @task
-def update(ctx):
+def update_function(ctx):
+    """
+    Update the function code with the latest packaged zipfile in s3. Note: this will publish a new Lambda version.
+    """
     function_name = "{}-function".format(getenv("STACK_NAME"))
     cmd = ("aws {} lambda update-function-code "
            "--function-name {} --publish --s3-bucket {} --s3-key {}-function.zip"
@@ -77,15 +94,17 @@ def update(ctx):
     )
     ctx.run(cmd)
 
+
 @task
 def deploy(ctx):
-
+    """
+    Create or update the CloudFormation stack. Note: you must run `package` first.
+    """
     template_path = join(dirname(__file__), 'template.yml')
-    zip_path = join(dirname(__file__), 'function.zip')
 
-    if not exists(zip_path):
-        print("No zip found!")
-        print("Did you run the package-* commands?")
+    if not s3_zipfile_exists(ctx):
+        print("No zipfile found in s3!")
+        print("Did you run the `package` command?")
         raise Exit(1)
 
     create_or_update = stack_exists(ctx) and 'update' or 'create'
@@ -122,9 +141,7 @@ def deploy(ctx):
 @task
 def create_dashboard(ctx, controller, volume):
     """
-    Create a cloudwatch dashboard with widgets as defined by cw_dashboard.json.
-    For now you need to profile a controller and volume name which you can get
-    from the cloudwatch metric dimensions.
+    Create a CloudWatch dashboard as defined by cw_dashboard.json. You must provide the name of a controller & volume present in the cloudwatch metric dimensions.
     """
     tf_path = join(dirname(__file__), 'cw_dashboard.json')
     with open(tf_path, 'r') as tf:
@@ -150,6 +167,9 @@ def create_dashboard(ctx, controller, volume):
 
 @task
 def delete(ctx):
+    """
+    Delete the CloudFormation stack
+    """
     cmd = ("aws {} cloudformation delete-stack "
            "--stack-name {}").format(profile_arg(), getenv('STACK_NAME'))
     if input('are you sure? [y/N] ').lower().strip().startswith('y'):
