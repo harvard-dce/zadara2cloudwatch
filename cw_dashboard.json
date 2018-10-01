@@ -2,68 +2,8 @@
     "widgets": [
         {
             "type": "metric",
-            "x": 12,
-            "y": 18,
-            "width": 12,
-            "height": 6,
-            "properties": {
-                "view": "timeSeries",
-                "stacked": false,
-                "region": "us-east-1",
-                "start": "-PT12H",
-                "end": "P0D",
-                "metrics": [
-                    [ "{{ namespace }}", "gb_wrt", "controller", "{{ controller }}", "vpsa", "{{ vpsa_host }}", { "stat": "Sum" } ],
-                    [ ".", "gb_rd", ".", ".", ".", ".", { "stat": "Sum" } ]
-                ],
-                "title": "Read/Write GBs"
-            }
-        },
-        {
-            "type": "metric",
             "x": 0,
-            "y": 0,
-            "width": 12,
-            "height": 6,
-            "properties": {
-                "view": "timeSeries",
-                "stacked": false,
-                "region": "us-east-1",
-                "start": "-PT12H",
-                "end": "P0D",
-                "metrics": [
-                    [ "{{ namespace }}", "mem_alloc", "controller", "{{ controller }}", "vpsa", "{{ vpsa_host }}", { "period": 60 } ],
-                    [ ".", "mem_used", ".", ".", ".", ".", { "period": 60 } ],
-                    [ ".", "mem_active", ".", ".", ".", ".", { "period": 60 } ]
-                ],
-                "title": "Controller Memory"
-            }
-        },
-        {
-            "type": "metric",
-            "x": 12,
-            "y": 0,
-            "width": 12,
-            "height": 6,
-            "properties": {
-                "view": "timeSeries",
-                "stacked": false,
-                "region": "us-east-1",
-                "start": "-PT12H",
-                "end": "P0D",
-                "title": "Controller CPU",
-                "metrics": [
-                    [ "{{ namespace }}", "cpu_system", "controller", "{{ controller }}", "vpsa", "{{ vpsa_host }}", { "period": 60 } ],
-                    [ ".", "cpu_iowait", ".", ".", ".", ".", { "period": 60 } ],
-                    [ ".", "cpu_user", ".", ".", ".", ".", { "period": 60 } ],
-                    [ ".", "cpu_idle", ".", ".", ".", ".", { "period": 60 } ]
-                ]
-            }
-        },
-        {
-            "type": "metric",
-            "x": 0,
-            "y": 18,
+            "y": 24,
             "width": 12,
             "height": 6,
             "properties": {
@@ -84,7 +24,7 @@
         {
             "type": "metric",
             "x": 0,
-            "y": 6,
+            "y": 12,
             "width": 12,
             "height": 6,
             "properties": {
@@ -103,7 +43,7 @@
         {
             "type": "metric",
             "x": 0,
-            "y": 12,
+            "y": 18,
             "width": 12,
             "height": 6,
             "properties": {
@@ -122,7 +62,7 @@
         {
             "type": "metric",
             "x": 12,
-            "y": 6,
+            "y": 12,
             "width": 12,
             "height": 6,
             "properties": {
@@ -141,7 +81,7 @@
         {
             "type": "metric",
             "x": 12,
-            "y": 12,
+            "y": 18,
             "width": 12,
             "height": 6,
             "properties": {
@@ -155,6 +95,79 @@
                     [ "{{ namespace }}", "rd_bandwidth", "volume", "{{ volume }}", "vpsa", "{{ vpsa_host }}" ],
                     [ ".", "wrt_bandwidth", ".", ".", ".", "." ]
                 ]
+            }
+        },
+        {
+            "type": "metric",
+            "x": 0,
+            "y": 6,
+            "width": 12,
+            "height": 6,
+            "properties": {
+                "metrics": [
+                    [ "{{ namespace }}", "mem_used", "controller", "{{ controller }}", "vpsa", "{{ vpsa_host }}" ],
+                    [ ".", "mem_active", ".", ".", ".", ".", { "yAxis": "right" } ]
+                ],
+                "view": "timeSeries",
+                "stacked": false,
+                "region": "us-east-1",
+                "title": "Controller Memory"
+            }
+        },
+        {
+            "type": "metric",
+            "x": 12,
+            "y": 6,
+            "width": 12,
+            "height": 6,
+            "properties": {
+                "view": "timeSeries",
+                "stacked": false,
+                "region": "us-east-1",
+                "metrics": [
+                    [ "{{ namespace }}", "cpu_user", "controller", "{{ controller }}", "vpsa", "{{ vpsa_host }}" ],
+                    [ ".", "cpu_system", ".", ".", ".", "." ],
+                    [ ".", "cpu_iowait", ".", ".", ".", "." ]
+                ],
+                "title": "Controller CPU"
+            }
+        },
+        {
+            "type": "metric",
+            "x": 12,
+            "y": 24,
+            "width": 12,
+            "height": 6,
+            "properties": {
+                "metrics": [
+                    [ "{{ namespace }}", "gb_rd", "controller", "{{ controller }}", "vpsa", "{{ vpsa_host }}", { "yAxis": "left" } ],
+                    [ ".", "gb_wrt", ".", ".", ".", "." ]
+                ],
+                "view": "timeSeries",
+                "stacked": false,
+                "region": "us-east-1",
+                "title": "GB Read/Write"
+            }
+        },
+        {
+            "type": "metric",
+            "x": 0,
+            "y": 0,
+            "width": 24,
+            "height": 6,
+            "properties": {
+                "metrics": [
+                    [ "{{ namespace }}", "percent_available", "pool", "{{ pool }}", "vpsa", "{{ vpsa_host }}", { "visible": false } ],
+                    [ ".", "available_capacity", ".", ".", ".", ".", { "yAxis": "left" } ],
+                    [ ".", "data_copies_capacity", "volume", "{{ volume }}", ".", "." ],
+                    [ ".", "allocated_capacity", ".", ".", ".", ".", { "yAxis": "right" } ]
+                ],
+                "view": "timeSeries",
+                "stacked": false,
+                "start": "-P3D",
+                "end": "P0D",
+                "region": "us-east-1",
+                "title": "Pool/Volume Usage"
             }
         }
     ]

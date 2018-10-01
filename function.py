@@ -19,6 +19,10 @@ METRIC_INTERVAL = env('METRIC_INTERVAL', 30)
 METRIC_NAMESPACE = env('METRIC_NAMESPACE')
 LAST_MESSAGE_ID_PARAM_NAME = env('LAST_MESSAGE_ID_PARAM_NAME')
 VPSA_LOG_GROUP_NAME = env('VPSA_LOG_GROUP_NAME')
+AWS_PROFILE = env('AWS_PROFILE')
+
+if AWS_PROFILE is not None:
+    boto3.setup_default_session(profile_name=AWS_PROFILE)
 
 cw = boto3.client('cloudwatch')
 ssm = boto3.client('ssm')
@@ -167,6 +171,75 @@ def send_logs():
         set_last_message_id(last_id)
 
 
+def send_pool_capcity(pool):
+    capacity = float(pool['capacity'])
+    available_capacity = float(pool['available_capacity'])
+    percent_available = round( (available_capacity / capacity) * 100, 2)
+
+    dimensions = [
+        {
+            'Name': 'vpsa',
+            'Value': VPSA_HOST
+        },
+        {
+            'Name': 'pool',
+            'Value': pool['name']
+        }
+    ]
+
+    metric_data = [
+        {
+            'MetricName': 'available_capacity',
+            'Timestamp': arrow.utcnow().datetime,
+            'Value': available_capacity,
+            'Unit': 'Gigabytes',
+            'Dimensions': dimensions
+        },
+        {
+            'MetricName': 'percent_available',
+            'Timestamp': arrow.utcnow().datetime,
+            'Value': percent_available,
+            'Unit': 'Percent',
+            'Dimensions': dimensions
+        }
+    ]
+
+    cw.put_metric_data(
+        Namespace=METRIC_NAMESPACE,
+        MetricData=metric_data
+    )
+
+
+def send_volume_capacity(volume):
+
+    dimensions = [
+        {
+            'Name': 'vpsa',
+            'Value': VPSA_HOST
+        },
+        {
+            'Name': 'volume',
+            'Value': volume['name']
+        }
+    ]
+
+    metric_data = []
+    for metric in ['allocated_capacity', 'data_copies_capacity']:
+        value = float(volume[metric])
+        metric_data.append({
+            'MetricName': metric,
+            'Timestamp': arrow.utcnow().datetime,
+            'Value': value,
+            'Unit': 'Gigabytes',
+            'Dimensions': dimensions
+        })
+
+    cw.put_metric_data(
+        Namespace=METRIC_NAMESPACE,
+        MetricData=metric_data
+    )
+
+
 def handler(event, context):
     """Fetch performance data from zadara api and push to cloudwatch"""
 
@@ -179,6 +252,7 @@ def handler(event, context):
         print("publishing metrics for pool {}".format(pool['name']))
         pool_perf = get_metrics('pools', pool['name'])
         send2cw(pool_perf, {'pool': pool['name']})
+        send_pool_capcity(pool)
 
     active_servers = []
     for volume in get_resources('volumes'):
@@ -186,6 +260,7 @@ def handler(event, context):
         vol_perf = get_metrics('volumes', volume['name'])
         send2cw(vol_perf, {'volume': volume['name']})
         active_servers.append(volume['server_name'])
+        send_volume_capacity(volume)
 
     for server in get_resources('servers'):
         if server['display_name'] not in active_servers:

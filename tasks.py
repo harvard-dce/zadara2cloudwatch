@@ -139,9 +139,9 @@ def deploy(ctx):
 
 
 @task
-def create_dashboard(ctx, controller, volume):
+def create_dashboard(ctx, controller, volume, pool):
     """
-    Create a CloudWatch dashboard as defined by cw_dashboard.json. You must provide the name of a controller & volume present in the cloudwatch metric dimensions.
+    Create a CloudWatch dashboard as defined by cw_dashboard.json. You must provide the name of a controller, volume & pool present in the cloudwatch metric dimensions.
     """
     tf_path = join(dirname(__file__), 'cw_dashboard.json')
     with open(tf_path, 'r') as tf:
@@ -150,7 +150,8 @@ def create_dashboard(ctx, controller, volume):
             namespace=getenv('METRIC_NAMESPACE'),
             vpsa_host=getenv('VPSA_HOST'),
             controller=controller,
-            volume=volume
+            volume=volume,
+            pool=pool
         )
     print(dashboard_body)
     cmd = ("aws {} cloudwatch put-dashboard "
