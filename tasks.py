@@ -30,7 +30,7 @@ def stack_exists(ctx):
 
 
 def s3_zipfile_exists(ctx):
-    cmd = "aws {} s3 ls s3://{}/{}-function.zip" \
+    cmd = "aws {} s3 ls s3://{}/z2cw/{}-function.zip" \
         .format(
             profile_arg(),
             getenv('LAMBDA_CODE_BUCKET'),
@@ -38,21 +38,6 @@ def s3_zipfile_exists(ctx):
         )
     res = ctx.run(cmd, hide=True, warn=True, echo=False)
     return res.exited == 0
-
-
-@task
-def create_code_bucket(ctx):
-    """
-    Create the s3 bucket for storing packaged lambda code
-    """
-    code_bucket = getenv('LAMBDA_CODE_BUCKET')
-    cmd = "aws {} s3 ls {}".format(profile_arg(), code_bucket)
-    exists = ctx.run(cmd, hide=True, warn=True)
-    if exists.ok:
-        print("Bucket exists!")
-    else:
-        cmd = "aws {} s3 mb s3://{}".format(profile_arg(), code_bucket)
-        ctx.run(cmd)
 
 
 @task
@@ -70,7 +55,7 @@ def package(ctx):
     with ctx.cd(build_path):
         ctx.run("zip -r {} .".format(zip_path))
     s3_file_name = "{}-function.zip".format(getenv('STACK_NAME'))
-    ctx.run("aws {} s3 cp {} s3://{}/{}".format(
+    ctx.run("aws {} s3 cp {} s3://{}/z2cw/{}".format(
         profile_arg(),
         zip_path,
         getenv("LAMBDA_CODE_BUCKET"),
@@ -85,7 +70,7 @@ def update_function(ctx):
     """
     function_name = "{}-function".format(getenv("STACK_NAME"))
     cmd = ("aws {} lambda update-function-code "
-           "--function-name {} --publish --s3-bucket {} --s3-key {}-function.zip"
+           "--function-name {} --publish --s3-bucket {} --s3-key z2cw/{}-function.zip"
            ).format(
         profile_arg(),
         function_name,

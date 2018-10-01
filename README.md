@@ -37,13 +37,12 @@ To see a list of commands, run:
 ```bash
 Available tasks:
 
-  create-code-bucket   Create the s3 bucket for storing packaged lambda code
-  create-dashboard     Create a CloudWatch dashboard as defined by cw_dashboard.json. You must provide the name of a controller & volume present in the cloudwatch
-                       metric dimensions.
-  delete               Delete the CloudFormation stack
-  deploy               Create or update the CloudFormation stack. Note: you must run `package` first.
-  package              Package the function + dependencies into a zipfile and upload to s3 bucket created via `create-code-bucket`
-  update-function      Update the function code with the latest packaged zipfile in s3. Note: this will publish a new Lambda version.
+  create-dashboard   Create a CloudWatch dashboard as defined by cw_dashboard.json. You must provide the name of a controller, volume & pool present in the
+                     cloudwatch metric dimensions.
+  delete             Delete the CloudFormation stack
+  deploy             Create or update the CloudFormation stack. Note: you must run `package` first.
+  package            Package the function + dependencies into a zipfile and upload to s3 bucket created via `create-code-bucket`
+  update-function    Update the function code with the latest packaged zipfile in s3. Note: this will publish a new Lambda version.
 
 ```
 
@@ -53,9 +52,9 @@ Copy `example.env` to `.env` in the project directory and fill in the necessary 
 
 `AWS_PROFILE` - this is only necessary if you have multiple aws profiles configured in `~/.aws/credentials`
 
-`LAMBDA_CODE_BUCKET` - name of the s3 bucket for storing the packaged lambda function code
+`LAMBDA_CODE_BUCKET` - name of an s3 bucket for storing the packaged lambda function code. The uploaded {{.zip}} file object will have a key like `z2cw/${STACK_NAME}.zip`.
 
-`STACK_NAME` - name of the CloudFormation stack that will be created. The names of many of the stack's resources are also based on this value, e.g. the lambda function will be named "${STACK_NAME}-function"
+`STACK_NAME` - name of the CloudFormation stack that will be created. The names of many of the stack's resources are also based on this value, e.g. the lambda function will be named `${STACK_NAME}-function`
 
 `API_KEY` - your Zadara API key value
 
@@ -73,7 +72,6 @@ Copy `example.env` to `.env` in the project directory and fill in the necessary 
 
 Run the following commands:
 
-1. `invoke create-code-bucket`
 1. `invoke package`
 1. `invoke deploy`
 
@@ -83,7 +81,7 @@ Wait for the CloudFormation console to show `CREATE_COMPLETE` for the stack.
 
 Once the Zadara metrics begin to appear (should take ~5m for first trigger event), view the metrics and copy the name of the controller and volume. Use those values to create the default Cloudwatch dashboard:
 
-`invoke create-dashboard [controller-name] [volume-name]`
+`invoke create-dashboard [controller-id] [volume-id] [pool-id]`
 
 To publish an updated version of the lambda function code run:
 

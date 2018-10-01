@@ -30,7 +30,7 @@ Resources:
       Timeout: 30
       Code:
         S3Bucket: !Ref LambdaCodeBucket
-        S3Key: !Sub "${AWS::StackName}-function.zip"
+        S3Key: !Sub "z2cw/${AWS::StackName}-function.zip"
       Environment:
         Variables:
           VPSA_HOST: !Ref ZadaraVpsaHost
