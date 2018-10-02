@@ -4,6 +4,9 @@ from os.path import join, dirname, exists
 from jinja2 import Template
 from configparser import ConfigParser
 from io import StringIO
+from difflib import unified_diff
+
+CONFIG_PARAMETER_STORE_KEY = '/z2cw/config-ini'
 
 cp = ConfigParser()
 
@@ -21,8 +24,8 @@ def config(option, section='DEFAULT'):
 
 
 def profile_arg():
-    if config('AWS_PROFILE'):
-        return "--profile {}".format(config('AWS_PROFILE'))
+    if config('aws_profile'):
+        return "--profile {}".format(config('aws_profile'))
     return ""
 
 
@@ -43,7 +46,7 @@ def s3_zipfile_exists(ctx, stack_name):
     cmd = "aws {} s3 ls s3://{}/z2cw/{}-function.zip" \
         .format(
             profile_arg(),
-            config('LAMBDA_CODE_BUCKET'),
+            config('lambda_code_bucket'),
             stack_name
         )
     res = ctx.run(cmd, hide=True, warn=True, echo=False)
@@ -52,14 +55,82 @@ def s3_zipfile_exists(ctx, stack_name):
 
 @task(pre=[load_config])
 def list_stacks(ctx):
+    """list the stack sections in `config.ini`"""
     for stack in cp.sections():
-        print("{} - {}".format(stack, config('VPSA_HOST', stack)))
+        print("{} - {}".format(stack, config('vpsa_host', stack)))
+
+
+@task(pre=[load_config])
+def config_save(ctx):
+    """sync your local `config.ini` contents to AWS Parameter Store"""
+    s = StringIO()
+    cp.write(s)
+    raw_config = s.getvalue()
+    cmd = ("aws {} ssm put-parameter --name {} --overwrite "
+           "--type SecureString --value '{}' --output text"
+           ).format(
+        profile_arg(),
+        CONFIG_PARAMETER_STORE_KEY,
+        raw_config
+    )
+    new_version = ctx.run(cmd, hide=True).stdout.strip()
+    print("new config version {} stored".format(new_version))
+
+
+@task
+def config_pull(ctx, version=None):
+    """Overwrite your local `config.ini` with what's saved in AWS Parameter Store"""
+    cmd = ("aws {} ssm get-parameter --name {} --output text "
+           "--with-decryption --query 'Parameter.Value'") \
+        .format(profile_arg(), CONFIG_PARAMETER_STORE_KEY)
+    raw_config = ctx.run(cmd, hide=True).stdout.strip()
+    with open('config.ini', 'w') as f:
+        f.write(raw_config)
+    print("local config is now up to date")
+
+
+@task(pre=[load_config])
+def config_check(ctx, diff=False):
+    """Check that your local `config.ini` is in sync with AWS Parameter Store"""
+    s = StringIO()
+    cp.write(s)
+    local_config = s.getvalue().strip()
+
+    cmd = ("aws {} ssm get-parameter --name {} --with-decryption "
+           "--query 'Parameter.Value' --output text").format(
+        profile_arg(),
+        CONFIG_PARAMETER_STORE_KEY
+    )
+    res = ctx.run(cmd, hide=True, warn=True)
+    if res.failed and 'ParameterNotFound' in res.stderr:
+        print("no remote config stored")
+        print("run `invoke config.save` to store your local config remotely")
+        return
+
+    remote_config = res.stdout.strip()
+
+    if local_config == remote_config:
+        print("config is in sync")
+    else:
+        print("config is not in sync")
+        print("run `invoke config.pull` to overwrite your local config with the remote version")
+        print("run `invoke config.save` to overwrite remote config with your local changes")
+
+        if diff:
+            local_split = local_config.splitlines(True)
+            remote_split = remote_config.splitlines(True)
+            diff = unified_diff(local_split, remote_split, fromfile='local', tofile='remote')
+            print(''.join(diff))
+        else:
+            print("run `invoke config.check --diff` to see the differences")
+
+
 
 
 @task(pre=[load_config])
 def package(ctx, stack_name):
     """
-    Package the function + dependencies into a zipfile and upload to s3 bucket created via `create-code-bucket`
+    Package the function + dependencies into a zipfile and upload to the configured `lambda_code_bucket`
     """
     verify_config(stack_name)
     build_path = join(dirname(__file__), 'dist')
@@ -74,7 +145,7 @@ def package(ctx, stack_name):
     ctx.run("aws {} s3 cp {} s3://{}/z2cw/{}".format(
         profile_arg(),
         zip_path,
-        config("LAMBDA_CODE_BUCKET"),
+        config("lambda_code_bucket"),
         s3_file_name)
     )
 
@@ -91,7 +162,7 @@ def update_function(ctx, stack_name):
            ).format(
         profile_arg(),
         function_name,
-        config('LAMBDA_CODE_BUCKET'),
+        config('lambda_code_bucket'),
         stack_name
     )
     ctx.run(cmd)
@@ -130,13 +201,13 @@ def deploy(ctx, stack_name):
         create_or_update,
         stack_name,
         template_path,
-        config('API_KEY', stack_name),
-        config('VPSA_HOST', stack_name),
-        config('METRIC_NAMESPACE', stack_name),
-        config('METRIC_INTERVAL', stack_name),
-        config('VPC_SUBNET_ID', stack_name),
-        config('VPC_SECURITY_GROUP_ID', stack_name),
-        config('LAMBDA_CODE_BUCKET')
+        config('api_key', stack_name),
+        config('vpsa_host', stack_name),
+        config('metric_namespace', stack_name),
+        config('metric_interval', stack_name),
+        config('vpc_subnet_id', stack_name),
+        config('vpc_security_group_id', stack_name),
+        config('lambda_code_bucket')
     )
     print(cmd)
     ctx.run(cmd)
@@ -152,8 +223,8 @@ def create_dashboard(ctx, stack_name, controller, volume, pool):
     with open(tf_path, 'r') as tf:
         t = Template(tf.read())
         dashboard_body = t.render(
-            namespace=config('METRIC_NAMESPACE', stack_name),
-            vpsa_host=config('VPSA_HOST', stack_name),
+            namespace=config('metric_namespace', stack_name),
+            vpsa_host=config('vpsa_host', stack_name),
             controller=controller,
             volume=volume,
             pool=pool
@@ -202,4 +273,7 @@ ns.add_collection(stack_ns)
 
 config_ns = Collection('config')
 config_ns.add_task(list_stacks)
+config_ns.add_task(config_check, name='check')
+config_ns.add_task(config_save, name='save')
+config_ns.add_task(config_pull, name='pull')
 ns.add_collection(config_ns)
