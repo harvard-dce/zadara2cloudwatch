@@ -100,6 +100,7 @@ def get_unit(metric_name):
 def get_last_message_id():
     try:
         param = ssm.get_parameter(Name=LAST_MESSAGE_ID_PARAM_NAME)
+        print("got last message id {}".format(param['Parameter']['Value']))
         return param['Parameter']['Value']
     except ClientError as e:
         if e.response['Error']['Code'] == 'ParameterNotFound':
@@ -109,6 +110,7 @@ def get_last_message_id():
 
 
 def set_last_message_id(id):
+    print("setting last message id {}".format(id))
     ssm.put_parameter(
         Name=LAST_MESSAGE_ID_PARAM_NAME,
         Type='String',
@@ -158,17 +160,41 @@ def send_logs():
     batch_counter = 0
     sequence_token = None
 
+    msgs = []
+    batch_first_timestamp = None
+
     while True:
         resp = api_request('messages.json', params=params)
-        msgs = resp['response']['messages']
-        if not len(msgs):
+        if not resp['response']['messages']:
             break
-        batch_counter += 1
-        print("sending batch {}".format(batch_counter))
-        sequence_token = send2cwlogs(msgs, sequence_token)
-        last_id = msgs[-1]['msg_id']
+
+        for msg in resp['response']['messages']:
+
+            msg_timestamp = arrow.get(msg['msg_time']).timestamp
+            if batch_first_timestamp is None:
+                batch_first_timestamp = msg_timestamp
+
+            # batch can't span more than 24hr
+            if msg_timestamp - batch_first_timestamp >= 86400:
+                batch_counter += 1
+                print("sending batch {}".format(batch_counter))
+                sequence_token = send2cwlogs(msgs, sequence_token)
+                last_id = msgs[-1]['msg_id']
+                set_last_message_id(last_id)
+                batch_first_timestamp = None
+                msgs = []
+            else:
+                msgs.append(msg)
+
+        if len(msgs):
+            batch_counter += 1
+            print("sending batch {}".format(batch_counter))
+            sequence_token = send2cwlogs(msgs, sequence_token)
+            last_id = msgs[-1]['msg_id']
+            set_last_message_id(last_id)
+            msgs = []
+
         params['start'] = last_id
-        set_last_message_id(last_id)
 
 
 def send_pool_capcity(pool):

@@ -1,51 +1,67 @@
 
-from invoke import task, Exit
-from os import getenv as env
-from dotenv import load_dotenv
+from invoke import task, Exit, Collection
 from os.path import join, dirname, exists
 from jinja2 import Template
+from configparser import ConfigParser
+from io import StringIO
 
-load_dotenv(join(dirname(__file__), '.env'))
+cp = ConfigParser()
 
 
-def getenv(var, required=True):
-    val = env(var)
-    if required and val is None:
-        raise Exit("{} not defined".format(var))
-    return val
+@task
+def load_config(ctx):
+    global cp
+    cp.read('config.ini')
+
+
+def config(option, section='DEFAULT'):
+    sec = cp[section]
+    if option in sec and sec[option]:
+        return sec[option]
 
 
 def profile_arg():
-    profile = getenv("AWS_PROFILE", False)
-    if profile is not None:
-        return "--profile {}".format(profile)
+    if config('AWS_PROFILE'):
+        return "--profile {}".format(config('AWS_PROFILE'))
     return ""
 
 
-def stack_exists(ctx):
+def verify_config(stack_name):
+    if stack_name not in cp:
+        print("{} stack is not configured".format(stack_name))
+        raise Exit(1)
+
+
+def stack_exists(ctx, stack_name):
     cmd = "aws {} cloudformation describe-stacks --stack-name {}" \
-        .format(profile_arg(), getenv('STACK_NAME'))
+        .format(profile_arg(), stack_name)
     res = ctx.run(cmd, hide=True, warn=True, echo=False)
     return res.exited == 0
 
 
-def s3_zipfile_exists(ctx):
+def s3_zipfile_exists(ctx, stack_name):
     cmd = "aws {} s3 ls s3://{}/z2cw/{}-function.zip" \
         .format(
             profile_arg(),
-            getenv('LAMBDA_CODE_BUCKET'),
-            getenv('STACK_NAME')
+            config('LAMBDA_CODE_BUCKET'),
+            stack_name
         )
     res = ctx.run(cmd, hide=True, warn=True, echo=False)
     return res.exited == 0
 
 
-@task
-def package(ctx):
+@task(pre=[load_config])
+def list_stacks(ctx):
+    for stack in cp.sections():
+        print("{} - {}".format(stack, config('VPSA_HOST', stack)))
+
+
+@task(pre=[load_config])
+def package(ctx, stack_name):
     """
     Package the function + dependencies into a zipfile and upload to s3 bucket created via `create-code-bucket`
     """
-
+    verify_config(stack_name)
     build_path = join(dirname(__file__), 'dist')
     function_path = join(dirname(__file__), 'function.py')
     zip_path = join(dirname(__file__), 'function.zip')
@@ -54,45 +70,47 @@ def package(ctx):
     ctx.run("ln -s -f -r -t {} {}".format(build_path, function_path))
     with ctx.cd(build_path):
         ctx.run("zip -r {} .".format(zip_path))
-    s3_file_name = "{}-function.zip".format(getenv('STACK_NAME'))
+    s3_file_name = "{}-function.zip".format(stack_name)
     ctx.run("aws {} s3 cp {} s3://{}/z2cw/{}".format(
         profile_arg(),
         zip_path,
-        getenv("LAMBDA_CODE_BUCKET"),
+        config("LAMBDA_CODE_BUCKET"),
         s3_file_name)
     )
 
 
-@task
-def update_function(ctx):
+@task(pre=[load_config])
+def update_function(ctx, stack_name):
     """
     Update the function code with the latest packaged zipfile in s3. Note: this will publish a new Lambda version.
     """
-    function_name = "{}-function".format(getenv("STACK_NAME"))
+    verify_config(stack_name)
+    function_name = stack_name + '-function'
     cmd = ("aws {} lambda update-function-code "
            "--function-name {} --publish --s3-bucket {} --s3-key z2cw/{}-function.zip"
            ).format(
         profile_arg(),
         function_name,
-        getenv('LAMBDA_CODE_BUCKET'),
-        getenv('STACK_NAME')
+        config('LAMBDA_CODE_BUCKET'),
+        stack_name
     )
     ctx.run(cmd)
 
 
-@task
-def deploy(ctx):
+@task(pre=[load_config])
+def deploy(ctx, stack_name):
     """
     Create or update the CloudFormation stack. Note: you must run `package` first.
     """
+    verify_config(stack_name)
     template_path = join(dirname(__file__), 'template.yml')
 
-    if not s3_zipfile_exists(ctx):
+    if not s3_zipfile_exists(ctx, stack_name):
         print("No zipfile found in s3!")
         print("Did you run the `package` command?")
         raise Exit(1)
 
-    create_or_update = stack_exists(ctx) and 'update' or 'create'
+    create_or_update = stack_exists(ctx, stack_name) and 'update' or 'create'
 
     cmd = ("aws {} cloudformation {}-stack "
            "--stack-name {} "
@@ -110,21 +128,23 @@ def deploy(ctx):
            ).format(
         profile_arg(),
         create_or_update,
-        getenv("STACK_NAME"),
+        stack_name,
         template_path,
-        getenv('API_KEY'),
-        getenv('VPSA_HOST'),
-        getenv('METRIC_NAMESPACE'),
-        getenv('METRIC_INTERVAL'),
-        getenv('VPC_SUBNET_ID'),
-        getenv('VPC_SECURITY_GROUP_ID'),
-        getenv('LAMBDA_CODE_BUCKET')
+        config('API_KEY', stack_name),
+        config('VPSA_HOST', stack_name),
+        config('METRIC_NAMESPACE', stack_name),
+        config('METRIC_INTERVAL', stack_name),
+        config('VPC_SUBNET_ID', stack_name),
+        config('VPC_SECURITY_GROUP_ID', stack_name),
+        config('LAMBDA_CODE_BUCKET')
     )
+    print(cmd)
     ctx.run(cmd)
+    __wait_for("create", stack_name)
 
 
-@task
-def create_dashboard(ctx, controller, volume, pool):
+@task(pre=[load_config])
+def create_dashboard(ctx, stack_name, controller, volume, pool):
     """
     Create a CloudWatch dashboard as defined by cw_dashboard.json. You must provide the name of a controller, volume & pool present in the cloudwatch metric dimensions.
     """
@@ -132,34 +152,54 @@ def create_dashboard(ctx, controller, volume, pool):
     with open(tf_path, 'r') as tf:
         t = Template(tf.read())
         dashboard_body = t.render(
-            namespace=getenv('METRIC_NAMESPACE'),
-            vpsa_host=getenv('VPSA_HOST'),
+            namespace=config('METRIC_NAMESPACE', stack_name),
+            vpsa_host=config('VPSA_HOST', stack_name),
             controller=controller,
             volume=volume,
             pool=pool
         )
-    print(dashboard_body)
     cmd = ("aws {} cloudwatch put-dashboard "
            "--dashboard-name {}-metrics "
            "--dashboard-body '{}'") \
         .format(
             profile_arg(),
-            getenv('STACK_NAME'),
+            stack_name,
             dashboard_body
         )
     ctx.run(cmd, echo=False)
 
 
-
-@task
-def delete(ctx):
+@task(pre=[load_config])
+def delete(ctx, stack_name):
     """
     Delete the CloudFormation stack
     """
     cmd = ("aws {} cloudformation delete-stack "
-           "--stack-name {}").format(profile_arg(), getenv('STACK_NAME'))
+           "--stack-name {}").format(profile_arg(), stack_name)
     if input('are you sure? [y/N] ').lower().strip().startswith('y'):
         ctx.run(cmd)
+        __wait_for("delete", stack_name)
     else:
         print("not deleting stack")
 
+
+def __wait_for(ctx, op, stack_name):
+    wait_cmd = ("aws {} cloudformation wait stack-{}-complete "
+                "--stack-name {}").format(profile_arg(), op, stack_name)
+    print("Waiting for stack {} to complete...".format(op))
+    ctx.run(wait_cmd)
+    print("Done")
+
+ns = Collection()
+
+stack_ns = Collection('stack')
+stack_ns.add_task(package)
+stack_ns.add_task(update_function)
+stack_ns.add_task(deploy)
+stack_ns.add_task(delete)
+stack_ns.add_task(create_dashboard)
+ns.add_collection(stack_ns)
+
+config_ns = Collection('config')
+config_ns.add_task(list_stacks)
+ns.add_collection(config_ns)
