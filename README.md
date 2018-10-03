@@ -17,7 +17,7 @@ stats. It also fetches the most recent VPSA log events, keeping track of the las
 event received via an SSM parameter.
 
 This project was created by and for Harvard DCE, and might not be sufficient to 
-satisfy all needs, but the function code is very straightforward and could be 
+satisfy all needs, but the function code is mostly straightforward and could be 
 extended to include more data. Fork or pull request!
 
 
@@ -30,43 +30,43 @@ dependencies by running:
 
 `pip install -r requirements_dev.txt`
 
-To see a list of commands, run:
+Deployment and configuation tasks are defined and executed using the [invoke]() library. They
+are grouped into two command namespaces: "config" and "stack". To see the full list of commands, run:
 
 `invoke -l`
 
-```bash
-Available tasks:
+## Configuration
 
-  create-dashboard   Create a CloudWatch dashboard as defined by cw_dashboard.json. You must provide the name of a controller, volume & pool present in the
-                     cloudwatch metric dimensions.
-  delete             Delete the CloudFormation stack
-  deploy             Create or update the CloudFormation stack. Note: you must run `package` first.
-  package            Package the function + dependencies into a zipfile and upload to s3 bucket created via `create-code-bucket`
-  update-function    Update the function code with the latest packaged zipfile in s3. Note: this will publish a new Lambda version.
+Initial configuration can go two ways, depending on if you're starting from scratch with
+a one-off development effort or need to work on existing instances.
 
-```
+* For one-off development start by copying `config.ini.example` to `config.ini` and filling in
+  the top-level and stack-specific settings.
+* To work on an existing set of instances in which the shared configuration is stored in AWS 
+  Parameter Store, run `invoke config.pull`. The remote settings will be fetched and written
+  to `config.ini`.
 
-#### Create a `.env` file
-
-Copy `example.env` to `.env` in the project directory and fill in the necessary values:
+#### Top-level settings
 
 `AWS_PROFILE` - this is only necessary if you have multiple aws profiles configured in `~/.aws/credentials`
 
 `LAMBDA_CODE_BUCKET` - name of an s3 bucket for storing the packaged lambda function code. The uploaded {{.zip}} file object will have a key like `z2cw/${STACK_NAME}.zip`.
 
-`STACK_NAME` - name of the CloudFormation stack that will be created. The names of many of the stack's resources are also based on this value, e.g. the lambda function will be named `${STACK_NAME}-function`
+#### Stack-level settings
 
-`API_KEY` - your Zadara API key value
+`[stack-name]` - section headings in the `ini` file define the name of the CloudFormation stack that will be created. The names of many of the stack's resources are also based on this value, e.g. the lambda function will be named `${stack-name}-function`
 
-`VPSA_HOST` - the host value of your Zadara VPSA, e.g. "vsa-0000099z-aws2.zadaravpsa.com:443"
+`api_key` - your Zadara API key value. Get this via the VPSA gui's "Users" section
 
-`METRIC_INTERVAL` - Interval (in seconds) between metric datapoints pulled from the Zadara API
+`vpsa_host` - the host value of your Zadara VPSA, e.g. "vsa-0000099z-aws2.zadaravpsa.com:443"
 
-`METRIC_NAMESPACE` - CloudWatch metric namespace the metric data will be pushed to
+`metric_interval` - Interval (in seconds) between metric datapoints pulled from the Zadara API
 
-`VPC_SUBNET_ID` - ID of a VPC subnet that has access to the Zadara VPSA. This is necessary for the Lambda function to be able to communicate with the VPSA. (In the case of our DCE Opencast clusters, this should be the "private subnet".)
+`metric_namespace` - CloudWatch metric namespace the metric data will be pushed to
 
-`VPC_SECURITY_GROUP_ID` - Security Group ID in the VPC. (For DCE this is the "Common" security group.)
+`vpc_subnet_id` - ID of a VPC subnet that has access to the Zadara VPSA. This is necessary for the Lambda function to be able to communicate with the VPSA. (In the case of our DCE Opencast clusters, this should be the "private subnet".)
+
+`vpc_security_group_id` - Security Group ID in the VPC. (For DCE this is the "Common" security group.)
 
 #### Initialize the stack
 
@@ -79,7 +79,7 @@ Wait for the CloudFormation console to show `CREATE_COMPLETE` for the stack.
 
 #### Additional commands
 
-Once the Zadara metrics begin to appear (should take ~5m for first trigger event), view the metrics and copy the name of the controller and volume. Use those values to create the default Cloudwatch dashboard:
+Once the Zadara metrics begin to appear (should take ~5m for first trigger event), view the metrics and copy the name of the controller, volume and pool. Use those values to create the default Cloudwatch dashboard:
 
 `invoke create-dashboard [controller-id] [volume-id] [pool-id]`
 
