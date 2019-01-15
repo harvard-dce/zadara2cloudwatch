@@ -3,5 +3,5 @@ boto3
 invoke
 python-dotenv
 jinja2
--r requirements.txt
+-r requirements_function.txt
 

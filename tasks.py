@@ -136,7 +136,7 @@ def package(ctx, stack_name):
     build_path = join(dirname(__file__), 'dist')
     function_path = join(dirname(__file__), 'function.py')
     zip_path = join(dirname(__file__), 'function.zip')
-    req_file = join(dirname(__file__), 'requirements.txt')
+    req_file = join(dirname(__file__), 'requirements_function.txt')
     ctx.run("pip install -U -r {} -t {}".format(req_file, build_path))
     ctx.run("ln -s -f -r -t {} {}".format(build_path, function_path))
     with ctx.cd(build_path):
@@ -211,7 +211,7 @@ def deploy(ctx, stack_name):
     )
     print(cmd)
     ctx.run(cmd)
-    __wait_for("create", stack_name)
+    __wait_for(ctx, "create", stack_name)
 
 
 @task(pre=[load_config])
@@ -249,7 +249,7 @@ def delete(ctx, stack_name):
            "--stack-name {}").format(profile_arg(), stack_name)
     if input('are you sure? [y/N] ').lower().strip().startswith('y'):
         ctx.run(cmd)
-        __wait_for("delete", stack_name)
+        __wait_for(ctx, "delete", stack_name)
     else:
         print("not deleting stack")
 

@@ -26,14 +26,21 @@ extended to include more data. Fork or pull request!
 The project requires python 3 and was built/tested using v3.6.x.
 
 After cloning the repo and activating a virtualenv, install the development
-dependencies by running:
+dependencies by first installing `pip-tools` and then running `pip-sync`:
 
-`pip install -r requirements_dev.txt`
+    pip install pip-tools
+    pip-sync requirements.txt
 
 Deployment and configuation tasks are defined and executed using the [invoke]() library. They
 are grouped into two command namespaces: "config" and "stack". To see the full list of commands, run:
 
 `invoke -l`
+
+## Dependencies
+
+Python dependencies are managed with the `pip-tools` tools. If/when packages are changed
+or updated, run `pip-compile` on the respective `.in` file to regenerate the `.txt` list.
+Then commit both the `.in` and `.txt` files to version control.
 
 ## Configuration
 
