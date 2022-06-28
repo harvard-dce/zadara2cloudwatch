@@ -4,6 +4,9 @@
 #
 #    pip-compile --output-file requirements_function.txt requirements_function.in
 #
-arrow==0.13.0
-python-dateutil==2.7.5    # via arrow
-six==1.12.0               # via python-dateutil
+arrow==0.15.1
+    # via -r requirements_function.in
+python-dateutil==2.7.5
+    # via arrow
+six==1.12.0
+    # via python-dateutil
